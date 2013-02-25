@@ -4,37 +4,74 @@ import java.awt.*;
 
 public class QQPlot extends JFrame implements ChangeListener 
 {
-        JTextField pctText;
-        JSlider pctSlider; 
-        XDensityPanel xDensity;
-        YDensityPanel yDensity;
+        int           gridSize      =  500;
+        // cache floating values for x and f(x)
+        float[]    scatterXPos      = new float[gridSize];
+        float[]    scatterYPos      = new float[gridSize];
+        float[]      xDensityY      = new float[gridSize];
+        float[]      yDensityY      = new float[gridSize];
+        
+        JPanel        controlPanel  = new JPanel();
+        JTextField      pctText     = new JTextField("0.0", 6);
+        JSlider         pctSlider;
+        JPanel        plotPanel     = new JPanel();
+        ScatterPanel    scatPanel;                       // fill after init array
+        JPanel          infoPanel   = new JPanel();
+        XDensityPanel   xDensity ;
+        YDensityPanel   yDensity ;
         
         public QQPlot() {
             super("QQ Plot");
             setLookAndFeel();
-            setSize(400,300);
+            setSize(400,400);
             setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            setVisible(true);
+            setLayout (new GridLayout(2,1));  // control and plot panels
             
-            pctSlider = makePctSlider(0, 100, 0); // starts out at 0 
-            pctText = new JTextField("0.0", 6);
-            setLayout (new GridLayout(3,1));
-            FlowLayout rightLayout = new FlowLayout(FlowLayout.RIGHT);
+            int inset=5;
+            fillPositionArrays();
+            scatPanel   = new ScatterPanel(gridSize, scatterXPos, scatterYPos);
+            xDensity    = new XDensityPanel(gridSize, scatterXPos, xDensityY);
+            yDensity    = new YDensityPanel(gridSize, scatterYPos, yDensityY);;
 
-            JPanel pctPanel = new JPanel();
-            pctPanel.setLayout(rightLayout);
-            pctPanel.add(new JLabel("Percentile: "));
-            pctPanel.add(pctText);
-            pctPanel.add(pctSlider);
-            add(pctPanel);
+            // build items for the control panel
+            FlowLayout controlFlow = new FlowLayout(FlowLayout.CENTER, inset,inset);
+            controlPanel.setLayout(controlFlow);
+            controlPanel.add(new JLabel("Percentile: "));
+            controlPanel.add(pctText);
+            pctSlider = makePctSlider(0, 100, 0);
+            controlPanel.add(pctSlider);
+            add(controlPanel);
             
-            xDensity = new XDensityPanel();
-            add(xDensity);
-            yDensity = new YDensityPanel();
-            add(yDensity);
+            // build plot panel
+            GridLayout plotFlow = new GridLayout(2,2);
+            plotPanel.setLayout(plotFlow);
+            plotPanel.add(yDensity);
+            plotPanel.add(scatPanel);
+            plotPanel.add(infoPanel);
+            plotPanel.add(xDensity);
+            
+            add(plotPanel);
+            // pack();                             // components determine size
             setVisible(true);
         }
-                
+        
+     
+        private void fillPositionArrays()
+        {
+            scatterXPos[0] = (float) Gaussian.PhiInverse(0.001);
+            xDensityY[0]   = (float) Gaussian.phi(scatterXPos[0]);
+            scatterYPos[0] = (float) Gaussian.PhiInverse(0.001);
+            yDensityY[0]   = (float) Gaussian.phi(scatterYPos[0]);
+            for(int i=1; i<gridSize; ++i) {
+                double p = (double)i; p /= gridSize;
+                double x = Gaussian.PhiInverse(p);
+                scatterXPos[i] = (float) x;
+                xDensityY[i]   = (float) Gaussian.phi(x);
+                scatterYPos[i] = (float) x; 
+                yDensityY[i]   = (float) Gaussian.phi(x);
+            }
+        }
+        
         private JSlider makePctSlider(int r, int g, int b)
         {
             JSlider slider = new JSlider(r,g,b);
@@ -52,11 +89,13 @@ public class QQPlot extends JFrame implements ChangeListener
             {
                 int p = pctSlider.getValue();
                 pctText.setText(Integer.toString(p));
-                float pct = p; 
-                xDensity.changePosition(pct/100);
+                float pct = p; pct/=100; 
+                xDensity.changePosition(pct);
                 xDensity.repaint();
-                yDensity.changePosition(pct/100);
+                yDensity.changePosition(pct);
                 yDensity.repaint();
+                scatPanel.changePosition(pct);
+                scatPanel.repaint();
             }
         }
         
@@ -82,28 +121,25 @@ public class QQPlot extends JFrame implements ChangeListener
                 
 }
 
-
-class YDensityPanel extends JPanel 
+class ScatterPanel extends JPanel 
 {
-    int    size = 1000;           // points in precomputed array for size
-    int    inset = 2;            // pixel adjust 
-    Color  background;
-    float  percentile;           // current position between 0 to 1
-    float  xMin, xMax, xRange;   // bounds on x-axis positions
-    float  yMin, yMax, yRange;   // bounds on y-axis positions
-    
-    
-    YDensityPanel() 
+    int       size = 100;           // points in precomputed array for size
+    int       inset = 2;
+    float[]   xArray, yArray;
+    Color     background;
+    float     percentile;           // current position between 0 to 1
+    float     xMin, xMax, xRange;
+    float     yMin, yMax, yRange;
+ 
+    ScatterPanel(int mySize, float[] x, float[] y) 
     {
-        background = Color.cyan;
-        percentile = (float)0.0;
-        // depend on Gaussian
-        xMin = (float) Gaussian.PhiInverse(0.001);
-        xMax = (float) Gaussian.PhiInverse(0.999);
-        xRange = xMax-xMin;
-        yMin = (float) Gaussian.phi(xMin);
-        yMax = (float) Gaussian.phi(0);
-        yRange = yMax-yMin;
+        size = mySize;
+        background = Color.magenta;
+        percentile = 0;
+        xArray=x;
+        yArray=y;
+        xMin = x[0]; xMax = x[size-1]; xRange = xMax-xMin;
+        yMin = y[0]; yMax = y[size-1]; yRange = yMax-yMin;
     }
     
     public void paintComponent(Graphics comp)
@@ -112,19 +148,96 @@ class YDensityPanel extends JPanel
         comp2D.setColor(background);
         comp2D.fillRect(0,0, getWidth(), getHeight());
         comp2D.setColor(Color.black);
-        float x;
-        int iX0, iY0, iX1=0,iY1=0;
-        iX0 = xPos(xMin); iY0=yPos(yMin);
+        comp2D.drawLine(0,getHeight(),  getWidth(),0);
+        // System.out.println("Scatter panel @ p = " + percentile);
+        int iX0, iY0, iX1, iY1;
+        iX1=iY1=0;
+        iX0=xPos(xArray[0]); iY0=yPos(yArray[0]);
         for(int i=1; i<size; ++i) {
             double p = i; p=p/size;
             if (percentile <= p) { break; }
-            iX1 = xPos(x = (float)Gaussian.PhiInverse(p));
-            iY1 = yPos((float)Gaussian.phi(x));
-            // System.out.println(" drawing coor  ("+iX0+","+iY0+")  ("+iX1+","+iY1+")");        
-            comp2D.drawLine(iY0, iX0, iY1, iX1);
+            iX1 = xPos(xArray[i]);
+            iY1 = yPos(yArray[i]);
+            // System.out.println("    draw " + xArray[i-1]+"  "+ yArray[i-1]+"  "+ xArray[i]+"  "+yArray[i]);
+            comp2D.drawLine(iX0, iY0, iX1, iY1);
             iX0=iX1; iY0=iY1;
         }
-        comp2D.drawLine(iY1, iX1, getWidth(), iX1);
+    }
+    
+                     
+    int xPos (float x) 
+    {
+       int w = getWidth()-inset;
+       return (Math.round((float)w * (x - xMin)/xRange));
+    }
+    
+    int yPos (float y)
+    {
+        int h = getHeight()-inset;
+        return (h - Math.round((float)h * (y - yMin)/yRange));
+    }
+        
+    public void changePosition (float pct) 
+    {
+        percentile = pct;
+    }
+}
+
+
+class YDensityPanel extends JPanel 
+{
+    int     size = 100;           // points in precomputed array for size
+    int     inset = 2;            // pixel adjust 
+    float[] xArray, yArray;
+    Color   background;
+    float   percentile;           // current position between 0 to 1
+    float   xMin, xMax, xRange;   // bounds on x-axis positions
+    float   yMin, yMax, yRange;   // bounds on y-axis positions
+    
+    YDensityPanel(int mySize, float[] x, float[] y) 
+    {
+        size = mySize;
+        xArray = x; yArray = y;
+        background = Color.yellow;
+        percentile = (float)0.0;
+        xMin=x[0]; xMax = x[size-1];
+        xRange = xMax-xMin;
+        yMin = yMax = 0;
+        for(int i=0; i<size; ++i) 
+        {   if      (yArray[i] < yMin) yMin = yArray[i];
+            else if (yArray[i] > yMax) yMax = yArray[i];
+        }
+        yRange = yMax-yMin;
+   }
+    
+    public void paintComponent(Graphics comp)
+    {   
+        Graphics2D comp2D = (Graphics2D) comp;
+        comp2D.setColor(background);
+        comp2D.fillRect(0,0, getWidth(), getHeight());
+        comp2D.setColor(Color.black);
+        int iX0, iY0, iX1,iY1;
+        iX1=iY1=0;
+        iX0 = xPos(xMin); iY0=yPos(yMin);
+        int[] xPts = new int[size+3];
+        int[] yPts = new int[size+3];
+        xPts[0]=iX0; yPts[0]=iY0;
+        int nFilled = (int) (percentile*size);
+        for(int i=1; i<size; ++i) {
+            iX1 = xPos(xArray[i]);
+            iY1 = yPos(yArray[i]);
+            comp2D.drawLine(iY0, iX0, iY1, iX1);
+            iX0=iX1; iY0=iY1;
+            xPts[i] = iX1; yPts[i]=iY1;
+        }
+        if (nFilled > 0)
+        {   xPts[nFilled+1]=xPts[nFilled]; yPts[nFilled+1]=getWidth();
+            xPts[nFilled+2]=getHeight()  ; yPts[nFilled+2]=getWidth();
+            // System.out.println(" last POS ("+yPts[nFilled  ]+","+xPts[nFilled  ]+")  @ nFilled="+nFilled);        
+            // System.out.println("   penult ("+yPts[nFilled+1]+","+xPts[nFilled+1]+")");        
+            // System.out.println("     last ("+yPts[nFilled+2]+","+xPts[nFilled+2]+")");        
+            comp2D.fillPolygon(yPts,xPts,nFilled+3);
+        }
     }
     
   
@@ -150,24 +263,28 @@ class YDensityPanel extends JPanel
 
 class XDensityPanel extends JPanel 
 {
-    int    size = 1000;           // points in precomputed array for size
-    int    inset = 2;            // pixel adjust 
-    Color  background;
-    float  percentile;           // current position between 0 to 1
-    float  xMin, xMax, xRange;   // bounds on x-axis positions
-    float  yMin, yMax, yRange;   // bounds on y-axis positions
+    int     size = 100;           // points in precomputed array for size
+    int     inset = 2;            // pixel adjust 
+    float[] xArray, yArray;
+    Color   background;
+    float   percentile;           // current position between 0 to 1
+    float   xMin, xMax, xRange;   // bounds on x-axis positions
+    float   yMin, yMax, yRange;   // bounds on y-axis positions
     
-    
-    XDensityPanel() 
+    XDensityPanel(int mySize, float[] x, float[] y) 
     {
+        size = mySize;
+        xArray = x; yArray = y;
         background = Color.yellow;
         percentile = (float)0.0;
-        // depend on Gaussian
-        xMin = (float) Gaussian.PhiInverse(0.001);
-        xMax = (float) Gaussian.PhiInverse(0.999);
+        xMin = x[0];
+        xMax = x[size-1];
         xRange = xMax-xMin;
-        yMin = (float) Gaussian.phi(xMin);
-        yMax = (float) Gaussian.phi(0);
+        yMin = yMax = 0;
+        for(int i=0; i<size; ++i) 
+        {   if      (yArray[i] < yMin) yMin = yArray[i];
+            else if (yArray[i] > yMax) yMax = yArray[i];
+        }
         yRange = yMax-yMin;
         System.out.println("X terms   min="+xMin+"   max="+xMax+"  range ="+xRange);
         System.out.println("Y terms   min="+yMin+"   max="+yMax+"  range ="+yRange); 
@@ -179,22 +296,30 @@ class XDensityPanel extends JPanel
         comp2D.setColor(background);
         comp2D.fillRect(0,0, getWidth(), getHeight());
         comp2D.setColor(Color.black);
-        float x;
-        int iX0, iY0, iX1=0,iY1=0;
+        int iX0, iY0, iX1, iY1;
+        iX1=iY1=0;  
         iX0 = xPos(xMin); iY0=yPos(yMin);
+        int[] xPts = new int[size+3];
+        int[] yPts = new int[size+3];
+        xPts[0]=iX0; yPts[0]=iY0;
+        int nFilled = (int) (percentile*size);
         for(int i=1; i<size; ++i) {
-            double p = i; p=p/size;
-            if (percentile <= p) { break; }
-            iX1 = xPos(x = (float)Gaussian.PhiInverse(p));
-            iY1 = yPos((float)Gaussian.phi(x));
-            // System.out.println(" drawing coor  ("+iX0+","+iY0+")  ("+iX1+","+iY1+")");        
+            iX1 = xPos(xArray[i]);
+            iY1 = yPos(yArray[i]);
             comp2D.drawLine(iX0, iY0, iX1, iY1);
             iX0=iX1; iY0=iY1;
+            xPts[i] = iX1; yPts[i]=iY1;
         }
-        comp2D.drawLine(iX1, iY1, iX1, 0);
+        // System.out.println(" last filled  ("+xPts[nFilled]+","+yPts[nFilled]+")  @ nFilled="+nFilled);        
+        xPts[nFilled+1  ]=xPts[nFilled]; yPts[nFilled+1  ]=0;
+        // System.out.println(" next to last ("+xPts[nFilled+1]+","+yPts[nFilled+1]+")");        
+        xPts[nFilled+2]= 0;  yPts[nFilled+2]=0;
+        // System.out.println("         last ("+xPts[nFilled+2]+","+yPts[nFilled+2]+")");        
+        comp2D.fillPolygon(xPts,yPts,nFilled+3);
+        // comp2D.drawLine(iX1, iY1, iX1, 0);
     }
     
-    int xPos (float x) 
+    public int xPos (float x) 
     {
         int w = getWidth()-inset;
         return (Math.round((float)w * (x - xMin)/xRange));
