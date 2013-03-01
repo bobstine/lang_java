@@ -4,8 +4,7 @@ import java.awt.*;
 
 public class QQPlot extends JFrame implements ChangeListener 
 {
-        int           gridSize      =  500;
-        // cache floating values for x and f(x)
+        int           gridSize      =  500;              // cache size for values of x and f(x)
         float[]    scatterXPos      = new float[gridSize];
         float[]    scatterYPos      = new float[gridSize];
         float[]      xDensityY      = new float[gridSize];
@@ -26,16 +25,26 @@ public class QQPlot extends JFrame implements ChangeListener
             setSize(400,400);
             setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             setLayout (new GridLayout(2,1));  // control and plot panels
-            
+ 
             int inset=5;
             fillPositionArrays();
             scatPanel   = new ScatterPanel(gridSize, scatterXPos, scatterYPos);
             xDensity    = new XDensityPanel(gridSize, scatterXPos, xDensityY);
-            yDensity    = new YDensityPanel(gridSize, scatterYPos, yDensityY);;
-
-            // build items for the control panel
-            FlowLayout controlFlow = new FlowLayout(FlowLayout.CENTER, inset,inset);
-            controlPanel.setLayout(controlFlow);
+            yDensity    = new YDensityPanel(gridSize, scatterYPos, yDensityY);          
+            
+            // build control panel
+            controlPanel.setLayout(new FlowLayout(FlowLayout.CENTER, inset,inset));
+            ButtonGroup buttons = new ButtonGroup();
+            JRadioButton normalButton = new JRadioButton("Normal");    buttons.add(normalButton); 
+            JRadioButton skewButton   = new JRadioButton("Skewed");    buttons.add(skewButton);
+            JRadioButton fatButton    = new JRadioButton("Fat tails"); buttons.add(fatButton);
+            JRadioButton dataButton   = new JRadioButton("Data");      buttons.add(dataButton);
+            normalButton.setSelected(true);
+            normalButton.addActionListener(this);
+            controlPanel.add(normalButton);
+            controlPanel.add(  skewButton);
+            controlPanel.add(   fatButton);
+            controlPanel.add(  dataButton);
             controlPanel.add(new JLabel("Percentile: "));
             controlPanel.add(pctText);
             pctSlider = makePctSlider(0, 100, 0);
@@ -43,13 +52,23 @@ public class QQPlot extends JFrame implements ChangeListener
             add(controlPanel);
             
             // build plot panel
-            GridLayout plotFlow = new GridLayout(2,2);
-            plotPanel.setLayout(plotFlow);
-            plotPanel.add(yDensity);
-            plotPanel.add(scatPanel);
-            plotPanel.add(infoPanel);
-            plotPanel.add(xDensity);
-            
+            plotPanel.setLayout(new GridBagLayout());
+            GridBagConstraints c00 = new GridBagConstraints();
+            c00.gridx =0; c00.gridy=0; c00.fill = GridBagConstraints.BOTH;
+            c00.weightx=0.2; c00.weighty=0.8;
+            plotPanel.add(yDensity,c00);
+            GridBagConstraints c01 = new GridBagConstraints();
+            c01.gridx = 1; c01.gridy=0; c01.fill = GridBagConstraints.BOTH;
+            c01.weightx=0.8; c01.weighty=0.8;
+            plotPanel.add(scatPanel,c01);
+            GridBagConstraints c10 = new GridBagConstraints();
+            c10.gridx = 0; c10.gridy=1; c10.fill = GridBagConstraints.BOTH;
+            c10.weightx=0.2; c10.weighty=0.2;
+            plotPanel.add(infoPanel,c10);
+            GridBagConstraints c11 = new GridBagConstraints();
+            c11.gridx = 1; c11.gridy=1; c11.fill = GridBagConstraints.BOTH;
+            c11.weightx=0.8; c11.weighty=0.3;
+            plotPanel.add(xDensity,c11);
             add(plotPanel);
             // pack();                             // components determine size
             setVisible(true);
@@ -142,6 +161,12 @@ class ScatterPanel extends JPanel
         yMin = y[0]; yMax = y[size-1]; yRange = yMax-yMin;
     }
     
+    @Override
+    public Dimension getPreferredSize() 
+    {
+        return new Dimension(300, 300);
+    }
+
     public void paintComponent(Graphics comp)
     {   
         Graphics2D comp2D = (Graphics2D) comp;
@@ -208,8 +233,14 @@ class YDensityPanel extends JPanel
             else if (yArray[i] > yMax) yMax = yArray[i];
         }
         yRange = yMax-yMin;
-   }
+    }
     
+    @Override
+    public Dimension getPreferredSize() 
+    {
+        return new Dimension(100, 300);
+    }
+
     public void paintComponent(Graphics comp)
     {   
         Graphics2D comp2D = (Graphics2D) comp;
@@ -290,6 +321,12 @@ class XDensityPanel extends JPanel
         System.out.println("Y terms   min="+yMin+"   max="+yMax+"  range ="+yRange); 
     }
     
+    @Override
+    public Dimension getPreferredSize() 
+    {
+        return new Dimension(300, 100);
+    }
+
     public void paintComponent(Graphics comp)
     {   
         Graphics2D comp2D = (Graphics2D) comp;
