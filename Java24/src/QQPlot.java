@@ -40,7 +40,7 @@ public class QQPlot extends JFrame implements ChangeListener
             JRadioButton fatButton    = new JRadioButton("Fat tails"); buttons.add(fatButton);
             JRadioButton dataButton   = new JRadioButton("Data");      buttons.add(dataButton);
             normalButton.setSelected(true);
-            normalButton.addActionListener(this);
+            // normalButton.addActionListener(this);
             controlPanel.add(normalButton);
             controlPanel.add(  skewButton);
             controlPanel.add(   fatButton);
