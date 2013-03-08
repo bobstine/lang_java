@@ -102,6 +102,7 @@ public class QQPlot extends JFrame implements ChangeListener
             return slider;
         }
 
+        @Override
         public void stateChanged (ChangeEvent event) 
         {
             JSlider source = (JSlider) event.getSource();
@@ -167,6 +168,7 @@ class ScatterPanel extends JPanel
         return new Dimension(300, 300);
     }
 
+    @Override
     public void paintComponent(Graphics comp)
     {   
         Graphics2D comp2D = (Graphics2D) comp;
